@@ -1,0 +1,7 @@
+TrainPipeline: 
+    TYPE: KnowledgeDistillation
+    Student: MobileNetV2
+    Teacher: ResNet50
+Backbone: MobileNetV2
+DetectionHead: LinearClassifier
+TeacherNetwork: ResNet50
