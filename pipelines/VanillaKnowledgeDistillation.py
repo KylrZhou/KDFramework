@@ -1,8 +1,9 @@
 import torch.nn as nn
 from torch.optim import Optimizer
-from torch.utlis.data import DataLoader
+from torch.utils.data import DataLoader
 from torch.optim.lr_scheduler import _LRScheduler
 
+from utils import PIPELINE
 
 TS={"Epoch":200, "ALPHA":0.5, "BETA":0.5}
 

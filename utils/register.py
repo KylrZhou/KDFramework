@@ -37,3 +37,9 @@ class Registry():
 
 MODEL = Registry('model')
 PIPELINE = Registry('pipeline')
+DATASETTRAIN = Registry('dataset_train')
+DATASETVAL = Registry('dataset_val')
+AUGMENTATION = Registry('augmentation')
+OPTIMIZER = Registry('optimizer')
+SCHEDULER = Registry('scheduler') 
+LOGGER = Registry('logger')

@@ -1,3 +1,5 @@
+from utils import LOGGER
+
 import os
 import json
 import time
@@ -6,27 +8,29 @@ from copy import deepcopy
 
 monthlist = ['Jan', 'Feb', 'March', 'April', 'May', 'June', 'July', 'Aug', 'Sept', 'Oct', 'Nov', 'Dec']
 
+@LOGGER.register()
 class Logger():
     def __init__(self,
                  log_interval, 
                  checkpoint_interval,
-                 MAX_ITER,
+                 MAX_EPOCH,
                  experiment_name='', 
                  float_tolerance=4, 
-                 LocalPath='./logs',
+                 LocalPath='/home/usr00/KDFrameworkDATA/logs',
                  CalcEpochAvgValue=False,
                  Print2Terminal=True,
                  Write2File=False,
+                 SaveCheckpoint=False,
                  Upload2Wandb=False,
                  MainScoreName="Acc",
                  TimeLog = True):
         self.LocalPath = LocalPath
         self.EPOCH = 1
         self.ITER = 0
-        self.MAX_ITER = MAX_ITER
         self.float_tolerance = float_tolerance
         self.log_interval = log_interval
         self.checkpoint_interval = checkpoint_interval
+        self.MAX_EPOCH = int(MAX_EPOCH)
         self.interval_counter = 0
         self.Ibuffer = {}
         self.Ebuffer = {}
@@ -34,17 +38,22 @@ class Logger():
         self.Ebuffer_counter = 0
         self.Stamp = ''
         self.LocalTime = ''
+
         self.CalcEpochAvgValue = CalcEpochAvgValue
         self.Print2Terminal = Print2Terminal
         self.Write2File = Write2File
+        self.SaveCheckpoint = SaveCheckpoint
         self.Upload2Wandb = Upload2Wandb
         self.MainScoreName = MainScoreName
+
+        # not yet realized
         self.TimeLog = TimeLog
         self.data_timer = 0
         self.calc_timer = 0
+        self.epoch_time = 0
         self.BestScore = -1
-        
-        self.make_path(experiment_name)
+        if self.Write2File or self.SaveCheckpoint:
+            self.make_path(experiment_name)
     
     def log(self, Value, Tag):
         if isinstance(Value, torch.Tensor):
@@ -107,6 +116,9 @@ class Logger():
     
     def init_model(self, model):
         self.model = model
+
+    def init_dataset(self, dataset):
+        self.MAX_ITER = len(dataset)
     
     def update_val(self):
         log_val = self.attach_stamp(self.Vbuffer, 'VAL')
@@ -119,6 +131,8 @@ class Logger():
             self.log_checkpoint('PERIODIC')
     
     def log_checkpoint(self, status):
+        if self.SaveCheckpoint == False:
+            return
         if status == 'BEST':
             torch.save(self.model, os.path.join(self.LocalPath, 'checkpoints', "Best.pth"))
         elif status == 'PERIODIC':
@@ -136,36 +150,41 @@ class Logger():
         temp = {}
         temp['Epoch'] = self.EPOCH
         if buffer_type == 'ITER':
+            self.epoch_time += self.calctime
+            self.epoch_time += self.datatime 
             tar.update({"CalcTime":self.calctime,"DataTime":self.datatime})
             temp['Iter'] = self.ITER
         elif buffer_type == 'VAL':
-            tar.update({"ValTime":self.calctime})
+            self.epoch_time += self.calctime
+            tar.update({"ValTime":self.calctime, "eta":self.calc_eta_time()})
             temp['Epoch'] -= 1
         temp.update(tar)
         return temp
 
     def write_to_file(self, buffer):
-        if self.write_to_file:
-            # convert temp into json
-            temp = json.dumps(buffer)
-            self.logpath.write(f"{temp}\n")
+        if self.Write2File == False:
+            return
+        # convert temp into json
+        temp = json.dumps(buffer)
+        self.logpath.write(f"{temp}\n")
 
     def upload_to_wandb(self, buffer):
         pass
         #wandb.log(temp)
 
     def printing_to_terminal(self, buffer):
-        if self.Print2Terminal:
-            temp = ''
-            _buffer = deepcopy(buffer)
-            try:
-                _ = _buffer['Iter']
-                _buffer['Iter'] = f"[{_}/{self.MAX_ITER}]"
-            except KeyError:
-                pass
-            for k, v in _buffer.items():
-                temp += f"{k}:{v}\t"
-            print(temp)
+        if self.Print2Terminal == False:
+            return
+        temp = ''
+        _buffer = deepcopy(buffer)
+        try:
+            _ = _buffer['Iter']
+            _buffer['Iter'] = f"[{_}/{self.MAX_ITER}]"
+        except KeyError:
+            pass
+        for k, v in _buffer.items():
+            temp += f"{k}:{v}\t"
+        print(temp)
 
     def epoch_avg(self):
         temp = {}
@@ -200,6 +219,15 @@ class Logger():
         name = ltime+name
         self.LocalPath = os.path.join(self.LocalPath, name)
         os.mkdir(self.LocalPath)
-        os.mkdir(os.path.join(self.LocalPath, 'checkpoints'))
-        self.logpath = os.path.join(self.LocalPath, 'log.json')
-        self.logpath = open(self.logpath, 'a')
+        if self.SaveCheckpoint:
+            os.mkdir(os.path.join(self.LocalPath, 'checkpoints'))
+        if self.Write2File:
+            self.logpath = os.path.join(self.LocalPath, 'log.json')
+            self.logpath = open(self.logpath, 'a')
+
+    def calc_eta_time(self):
+        self.epoch_time *= (self.MAX_EPOCH - self.EPOCH - 1)
+        h = int(self.epoch_time/3600)
+        m = int(self.epoch_time%60)+1
+        self.epoch_time = 0
+        return f"{h}h{m}m"

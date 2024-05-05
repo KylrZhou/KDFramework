@@ -6,7 +6,7 @@ arXiv preprint arXiv:1801.04381.
 import from https://github.com/tonylins/pytorch-mobilenet-v2
 """
 
-from utlis import MODEL
+from utils import MODEL
 
 
 import torch.nn as nn
@@ -92,7 +92,7 @@ class InvertedResidual(nn.Module):
 #class MBNTV2(nn.Module):
 @MODEL.register()
 class MobileNetV2(nn.Module):
-    def __init__(self, num_classes=100, width_mult=1.):
+    def __init__(self, num_classes=100, width_mult=1., out_indices=[]):
         super().__init__()
         # setting of inverted residual blocks
         self.cfgs = [
@@ -107,9 +107,11 @@ class MobileNetV2(nn.Module):
         ]
 
         # building first layer
+        self.out_indices = out_indices
         input_channel = _make_divisible(32 * width_mult, 4 if width_mult == 0.1 else 8)
         self.conv1 = conv_3x3_bn(3, input_channel, 1)
         # building inverted residual blocks
+        self.features = []
         block = InvertedResidual
         for _, (t, c, n, s) in enumerate(self.cfgs):
             stages = []
@@ -117,10 +119,12 @@ class MobileNetV2(nn.Module):
             for i in range(n):
                 stages.append(block(input_channel, output_channel, s if i == 0 else 1, t))
                 input_channel = output_channel
-            exec(f"self.stage{_+1}=nn.Sequential(*stages)") 
+            #exec(f"self.stage{_+1}=nn.Sequential(*stages)") 
+            self.features.append(nn.Sequential(*stages))
+        self.features = nn.Sequential(*self.features)
         # building last several layers
         output_channel = _make_divisible(1280 * width_mult, 4 if width_mult == 0.1 else 8) if width_mult > 1.0 else 1280
-        self.conv = conv_1x1_bn(input_channel, output_channel)
+        self.conv2 = conv_1x1_bn(input_channel, output_channel)
         self.avgpool = nn.AdaptiveAvgPool2d((1, 1))
         self.classifier = nn.Linear(output_channel, num_classes)
 
@@ -129,18 +133,15 @@ class MobileNetV2(nn.Module):
     def forward(self, x):
         outs = []
         x = self.conv1(x)
-        x = self.stage1(x)
-        outs.append(x)
-        x = self.stage2(x)
-        x = self.stage3(x)
-        outs.append(x)
-        x = self.stage4(x)
-        x = self.stage5(x)
-        x = self.stage6(x)
-        outs.append(x)
-        x = self.stage7(x)
-        x = self.conv(x)
-        outs.append(x)
+        if 0 in self.out_indices:
+            outs.append(x)
+        for idx, stage in enumerate(self.features):
+            x = stage(x)
+            if idx+1 in self.out_indices:
+                outs.append(x)
+        x = self.conv2(x)
+        if 8 in self.out_indices:
+            outs.append(x)
         x = self.avgpool(x)
         x = x.view(x.size(0), -1)
         x = self.classifier(x)
