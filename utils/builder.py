@@ -9,6 +9,8 @@ from utils import AUGMENTATION
 from utils import OPTIMIZER
 from utils import SCHEDULER
 from utils import LOGGER
+from utils import FUNCTION
+from utils import DISTILLER
 
 def build_model(opt):
     TYPE = opt['TYPE']
@@ -112,3 +114,39 @@ def build_logger(opt):
     elif isinstance(opt, list):
         logger = LOGGER.get(TYPE)(*opt)
     return logger
+
+def build_fucntion(opt):
+    TYPE = opt['TYPE']
+    opt.pop('TYPE')
+    if isinstance(opt, dict):
+        function = FUNCTION.get(TYPE)(**opt)
+    elif isinstance(opt, str):
+        function = FUNCTION.get(TYPE)()
+    elif isinstance(opt, list):
+        function = FUNCTION.get(TYPE)(*opt)
+    return function
+
+def build_distiller(opt):
+    TYPE = opt['TYPE']
+    opt.pop('TYPE')
+    if isinstance(opt['teacher'], dict):
+        opt['teacher'] = build_model(opt['teacher'])
+    elif isinstance(opt['teacher'], list):
+        temp = []
+        for i in opt['teacher']:
+            temp.append(build_model(i))
+        opt['teacher'] = temp
+    if isinstance(opt['kd_loss_fucntion'], dict):
+        opt['kd_loss_fucntion'] = build_fucntion(opt['kd_loss_fucntion'])
+    elif isinstance(opt['kd_loss_fucntion'], list):
+        temp = []
+        for i in opt['kd_loss_fucntion']:
+            temp.append(build_fucntion(i))
+        opt['kd_loss_fucntion'] = temp
+    if isinstance(opt, dict):
+        distiller = DISTILLER.get(TYPE)(**opt)
+    elif isinstance(opt, str):
+        distiller = DISTILLER.get(TYPE)()
+    elif isinstance(opt, list):
+        distiller = DISTILLER.get(TYPE)(*opt)
+    return distiller

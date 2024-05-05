@@ -1,16 +1,18 @@
 from utils import PIPELINE
-from pipelines import BaseVal
+from pipelines import KDBaseVal
 
 @PIPELINE.register()
-def BaseTrain(train_dataset, 
-              test_dataset, 
-              optimizer, 
-              scheduler, 
-              model, 
-              loss_function,
-              logger, 
-              config=None):
+def KDBaseTrain(train_dataset,
+                test_dataset, 
+                optimizer, 
+                scheduler, 
+                model, 
+                loss_function,
+                logger, 
+                distiller,
+                config):
     EPOCHS = config['settings']['EPOCHS']
+    ALPHA = config['distiller']['ALPHA']
     logger.data_time_start()
     for epoch in range(1,EPOCHS+1):
         model.train()
@@ -21,8 +23,9 @@ def BaseTrain(train_dataset,
             logger.data_time_end()
             logger.calc_time_start()
             outputs = model(data)
-            outputs = outputs[-1]
-            loss = logger.log(loss_function(outputs, labels), "Loss")
+            label_loss = logger.log(loss_function(outputs[-1], labels), "LabelLoss")
+            kd_loss = distiller.distill(data, labels, model)
+            loss = label_loss * ALPHA + kd_loss
             loss.backward()
             optimizer.step()
             logger.calc_time_end()
@@ -33,5 +36,5 @@ def BaseTrain(train_dataset,
             logger.update()
         scheduler.step()
         if test_dataset is not None:
-            BaseVal(test_dataset, model, logger)
+            KDBaseVal(test_dataset, model, distiller.teacher, logger)
         logger.data_time_start()

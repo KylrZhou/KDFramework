@@ -51,6 +51,7 @@ class Logger():
         self.data_timer = 0
         self.calc_timer = 0
         self.epoch_time = 0
+        self.avg_epoch_time = 0
         self.BestScore = -1
         if self.Write2File or self.SaveCheckpoint:
             self.make_path(experiment_name)
@@ -156,7 +157,7 @@ class Logger():
             temp['Iter'] = self.ITER
         elif buffer_type == 'VAL':
             self.epoch_time += self.calctime
-            tar.update({"ValTime":self.calctime, "eta":self.calc_eta_time()})
+            tar.update({"ValTime":self.calctime, "EpochTime":f"{int(self.epoch_time/60)}m{int(self.epoch_time%60)}s", "eta":self.calc_eta_time()})
             temp['Epoch'] -= 1
         temp.update(tar)
         return temp
@@ -226,8 +227,9 @@ class Logger():
             self.logpath = open(self.logpath, 'a')
 
     def calc_eta_time(self):
-        self.epoch_time *= (self.MAX_EPOCH - self.EPOCH - 1)
-        h = int(self.epoch_time/3600)
-        m = int(self.epoch_time%60)+1
+        self.avg_epoch_time += ((self.epoch_time/60)-self.avg_epoch_time)/(self.EPOCH-1)
+        tmp = self.avg_epoch_time * (self.MAX_EPOCH - self.EPOCH - 1)
+        h = int(tmp/60)
+        m = int(tmp+1)
         self.epoch_time = 0
         return f"{h}h{m}m"

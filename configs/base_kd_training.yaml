@@ -13,8 +13,8 @@ test_dataset:
   num_workers: 8
   shuffle: False
 model:
-  TYPE: ShuffleNetV2
-  model_size: 1.0x
+  TYPE: ResNet
+  layers: 18
 settings:
   EPOCHS: &eps 200
   device: &dvc cuda
@@ -32,6 +32,17 @@ settings:
       - 120
       - 160
     gamma: 0.1
+distiller:
+  TYPE: VanillaKnowledgeDistiller
+  teacher:
+    TYPE: ResNet
+    layers: 18
+  device: *dvc
+  kd_loss_fucntion:
+    TYPE: CrossEntropyLoss
+  ALPHA: 0.5
+  BETA: 0.5
+  temperature: 4
 logger:
   TYPE: Logger
   log_interval: 50
