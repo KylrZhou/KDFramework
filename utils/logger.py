@@ -14,9 +14,10 @@ class Logger():
                  log_interval, 
                  checkpoint_interval,
                  MAX_EPOCH,
+                 config,
                  experiment_name='', 
                  float_tolerance=4, 
-                 LocalPath='/home/usr00/KDFrameworkDATA/logs',
+                 SavePath='/home/usr00/KDFrameworkDATA/logs',
                  CalcEpochAvgValue=False,
                  Print2Terminal=True,
                  Write2File=False,
@@ -24,7 +25,7 @@ class Logger():
                  Upload2Wandb=False,
                  MainScoreName="Acc",
                  TimeLog = True):
-        self.LocalPath = LocalPath
+        self.SavePath = SavePath
         self.EPOCH = 1
         self.ITER = 0
         self.float_tolerance = float_tolerance
@@ -54,7 +55,7 @@ class Logger():
         self.avg_epoch_time = 0
         self.BestScore = -1
         if self.Write2File or self.SaveCheckpoint:
-            self.make_path(experiment_name)
+            self.make_path(config_name=config['filename'], config=config)
     
     def log(self, Value, Tag):
         if isinstance(Value, torch.Tensor):
@@ -115,8 +116,9 @@ class Logger():
             self.EPOCH += 1
             self.ITER = 0
     
-    def init_model(self, model):
+    def init_model_optimizer(self, model, optimizer):
         self.model = model
+        self.optimizer = optimizer
 
     def init_dataset(self, dataset):
         self.MAX_ITER = len(dataset)
@@ -135,10 +137,17 @@ class Logger():
         if self.SaveCheckpoint == False:
             return
         if status == 'BEST':
-            torch.save(self.model, os.path.join(self.LocalPath, 'checkpoints', "Best.pth"))
+            ckpt = {'EPOCH':self.EPOCH-1,
+                    'BESTSCORE':self.BestScore,
+                    'MODEL':self.model.state_dict(),
+                    'OPTIMIZER':self.optimizer.state_dict()}
+            torch.save(ckpt, os.path.join(self.SavePath, 'checkpoints', "Best.pth"))
         elif status == 'PERIODIC':
-            torch.save(self.model, os.path.join(self.LocalPath, 'checkpoints', f"Epoch_{self.EPOCH-1}.pth"))
-        
+            ckpt = {'EPOCH':self.EPOCH-1,
+                    'BESTSCORE':self.BestScore,
+                    'MODEL':self.model.state_dict(),
+                    'OPTIMIZER':self.optimizer.state_dict()}
+            torch.save(ckpt, os.path.join(self.SavePath, 'checkpoints', f"Epoch_{self.EPOCH-1}.pth"))
 
     def init_buffer(self, buffer):
         for k in buffer.keys():
@@ -212,19 +221,21 @@ class Logger():
             value = int(value * _ + 0.5)/_
         return value
     
-    def make_path(self, name=''):
-        if os.path.isdir(self.LocalPath) == False:
-            os.mkdir(self.LocalPath)
+    def make_path(self, config_name, config):
+        self.SavePath = os.path.join(self.SavePath, config_name)
+        if os.path.isdir(self.SavePath) == False:
+            os.makedirs(self.SavePath)
         ltime = time.localtime()
         ltime = f"{ltime[0]-2000}{monthlist[ltime[1]-1]}{ltime[2]:02d}_{ltime[3]:02d}{ltime[4]:02d}{ltime[5]:02d}"
-        name = ltime+name
-        self.LocalPath = os.path.join(self.LocalPath, name)
-        os.mkdir(self.LocalPath)
+        self.SavePath = os.path.join(self.SavePath, ltime)
+        os.mkdir(self.SavePath)
         if self.SaveCheckpoint:
-            os.mkdir(os.path.join(self.LocalPath, 'checkpoints'))
+            os.mkdir(os.path.join(self.SavePath, 'checkpoints'))
         if self.Write2File:
-            self.logpath = os.path.join(self.LocalPath, 'log.json')
+            self.logpath = os.path.join(self.SavePath, 'log.json')
             self.logpath = open(self.logpath, 'a')
+            with open(os.path.join(self.SavePath, 'config.yaml'), 'w') as f:
+                f.write(yaml.dump(config, allow_unicode=True, default_flow_style=False, sort_keys=False))
 
     def calc_eta_time(self):
         self.avg_epoch_time += ((self.epoch_time/60)-self.avg_epoch_time)/(self.EPOCH-1)

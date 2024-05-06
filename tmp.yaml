@@ -1,0 +1,39 @@
+train_dataset:
+  TYPE: CIFAR100
+  root: /home/usr00/KDFrameworkDATA/data
+  augmentations: configs/augmentation_configs/CIFAR100_train_aug.yaml
+  batch_size: 256
+  num_workers: 8
+  shuffle: true
+test_dataset:
+  TYPE: CIFAR100
+  root: /home/usr00/KDFrameworkDATA/data
+  augmentations: configs/augmentation_configs/CIFAR100_val_aug.yaml
+  batch_size: 512
+  num_workers: 8
+  shuffle: false
+model:
+  TYPE: ShuffleNetV2
+  model_size: 1.0x
+settings:
+  EPOCHS: 200
+  device: cuda
+  loss_function:
+    TYPE: CrossEntropyLoss
+  optimizer:
+    TYPE: SGD
+    lr: 0.1
+    momentum: 0.9
+    weight_decay: 4e-5
+  scheduler:
+    TYPE: MultiStepLR
+    milestones:
+    - 60
+    - 120
+    - 160
+    gamma: 0.1
+logger:
+  TYPE: Logger
+  log_interval: 50
+  checkpoint_interval: 10
+  MAX_EPOCH: 200

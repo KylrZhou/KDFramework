@@ -105,14 +105,16 @@ def build_scheduler(optimizer, opt):
     return scheduler
 
 def build_logger(opt):
-    TYPE = opt['TYPE']
-    opt.pop('TYPE')
-    if isinstance(opt, dict):
-        logger = LOGGER.get(TYPE)(**opt)
-    elif isinstance(opt, str):
-        logger = LOGGER.get(TYPE)()
-    elif isinstance(opt, list):
-        logger = LOGGER.get(TYPE)(*opt)
+    logger_config = opt['logger']
+    logger_config['config'] = opt
+    TYPE = logger_config['TYPE']
+    logger_config.pop('TYPE')
+    if isinstance(logger_config, dict):
+        logger = LOGGER.get(TYPE)(**logger_config)
+    elif isinstance(logger_config, str):
+        logger = LOGGER.get(logger_config)()
+    elif isinstance(logger_config, list):
+        logger = LOGGER.get(TYPE)(*logger_config)
     return logger
 
 def build_fucntion(opt):

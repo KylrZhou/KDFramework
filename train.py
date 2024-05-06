@@ -3,6 +3,7 @@ import sys
 import re
 import datetime
 
+import argparse
 import yaml
 import numpy
 
@@ -23,13 +24,24 @@ from schedulers import *
 from utils import *
 from functions import *
 
-#My scheduler
-#My augmentation
-#resume training
+#debuging first
+#resume training (scheduler problem)
+#My scheduler justification 1 epoch more problem
 #my method adaptation
+###constructing into one file
 if __name__ == '__main__':
-    config = yaml.load(open('configs/base_training.yaml', 'r'),  Loader=yaml.FullLoader)
-    
+    parser = argparse.ArgumentParser()
+    parser.add_argument('--config', type=str, default='configs/base_training.yaml')
+    parser.add_argument('--resume', type=str, default=None)
+    args = parser.parse_args()
+
+    resume = None
+    if args.resume is not None:
+        resume = torch.load(resume)
+
+    config = yaml.load(open(args.config, 'r'),  Loader=yaml.FullLoader)
+    config['filename'] = extract_filename(args.config)
+     
     train_dataset = build_dataset_train(config['train_dataset'])
     test_dataset = build_dataset_val(config['test_dataset'])
     
@@ -41,9 +53,9 @@ if __name__ == '__main__':
     optimizer = build_optimizer(model.parameters(), config['settings']['optimizer'])
     scheduler = build_scheduler(optimizer, config['settings']['scheduler'])
     
-    logger = build_logger(config['logger'])
+    logger = build_logger(config)
     logger.init_dataset(train_dataset)
-    logger.init_model(model)
+    logger.init_model_optimizer(model, optimizer)
     
     try:
         distiller = build_distiller(config['distiller'])
@@ -56,7 +68,8 @@ if __name__ == '__main__':
                     loss_function=loss_func, 
                     logger=logger, 
                     config=config,
-                    distiller=distiller)
+                    distiller=distiller,
+                    resume=resume)
     except KeyError:
         distiller = None
         BaseTrain(train_dataset=train_dataset, 
@@ -66,4 +79,5 @@ if __name__ == '__main__':
                   model=model, 
                   loss_function=loss_func, 
                   logger=logger, 
-                  config=config)
+                  config=config,
+                  resume=resume)

@@ -8,11 +8,18 @@ def BaseTrain(train_dataset,
               scheduler, 
               model, 
               loss_function,
-              logger, 
-              config=None):
+              logger,
+              config=None,
+              resume=None):
+    if resume is not None:
+        starting_epoch = resume['EPOCH']
+        model = model.load_state_dict(resume['model'])
+        optimizer = optimizer.load_state_dict(resume['optimizer'])
+        logger.EPOCH = starting_epoch
+        logger.BestScore = resume['BESTSCORE']
     EPOCHS = config['settings']['EPOCHS']
     logger.data_time_start()
-    for epoch in range(1,EPOCHS+1):
+    for epoch in range(starting_epoch, EPOCHS+1):
         model.train()
         for batch_idx, (data, labels) in enumerate(train_dataset):
             optimizer.zero_grad()
