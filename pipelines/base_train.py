@@ -9,12 +9,15 @@ def BaseTrain(train_dataset,
               model, 
               loss_function,
               logger,
+              warmup=None,
               config=None,
               resume=None):
+    starting_epoch = 1
     if resume is not None:
         starting_epoch = resume['EPOCH']
-        model = model.load_state_dict(resume['model'])
-        optimizer = optimizer.load_state_dict(resume['optimizer'])
+        model.load_state_dict(resume['MODEL'])
+        optimizer.load_state_dict(resume['OPTIMIZER'])
+        scheduler.load_state_dict(resume['SCHEDULER'])
         logger.EPOCH = starting_epoch
         logger.BestScore = resume['BESTSCORE']
     EPOCHS = config['settings']['EPOCHS']
@@ -38,6 +41,9 @@ def BaseTrain(train_dataset,
             lr = logger.log(optimizer.param_groups[0]['lr'], "lr")
             log_dict = {"Loss":loss,"lr":lr}
             logger.update()
+            if warmup is not None:
+                if warmup.warmup_epochs >= epoch:
+                    warmup.step()
         scheduler.step()
         if test_dataset is not None:
             BaseVal(test_dataset, model, logger)

@@ -3,6 +3,8 @@ from utils import LOGGER
 import os
 import json
 import time
+import wandb
+import yaml
 import torch
 from copy import deepcopy
 
@@ -38,7 +40,7 @@ class Logger():
         self.Vbuffer = {}
         self.Ebuffer_counter = 0
         self.Stamp = ''
-        self.LocalTime = ''
+        self.LocalTime = self.get_ltime()
 
         self.CalcEpochAvgValue = CalcEpochAvgValue
         self.Print2Terminal = Print2Terminal
@@ -56,6 +58,11 @@ class Logger():
         self.BestScore = -1
         if self.Write2File or self.SaveCheckpoint:
             self.make_path(config_name=config['filename'], config=config)
+        if self.Upload2Wandb:
+            wandb.login()
+            wandb.init(project=config['settings']['project'], 
+                       name=config['filename']+'_'+self.LocalTime,
+                       dir=config['settings']['wandb_dir'])
     
     def log(self, Value, Tag):
         if isinstance(Value, torch.Tensor):
@@ -88,7 +95,7 @@ class Logger():
         # write every iter to file
         self.write_to_file(iter_log)
         # upload every iter to wandb
-        ###self.upload_to_wandb(iter_log)
+        self.upload_to_wandb(iter_log)
         # initialize iter buffer
         self.init_buffer(self.Ibuffer)
         # if iter is not log iter and final iter, do nothing
@@ -110,15 +117,16 @@ class Logger():
                 # write to file
                 self.write_to_file(epoch_log)
                 # upload to wandb
-                ###self.upload_to_wandb(epoch_log)
+                self.upload_to_wandb(epoch_log)
                 # initialize epoch buffer
             self.init_buffer(self.Ebuffer)
             self.EPOCH += 1
             self.ITER = 0
     
-    def init_model_optimizer(self, model, optimizer):
+    def init_model_optimizer_scheduler(self, model, optimizer, scheduler):
         self.model = model
         self.optimizer = optimizer
+        self.scheduler = scheduler
 
     def init_dataset(self, dataset):
         self.MAX_ITER = len(dataset)
@@ -127,26 +135,32 @@ class Logger():
         log_val = self.attach_stamp(self.Vbuffer, 'VAL')
         self.printing_to_terminal(log_val)
         self.write_to_file(log_val)
+        self.upload_to_wandb(log_val)
         if log_val[self.MainScoreName] >= self.BestScore:
+            p = deepcopy(self.BestScore)
             self.BestScore = log_val[self.MainScoreName]
-            self.log_checkpoint('BEST')
+            self.log_checkpoint('BEST', p = p)
         if (self.EPOCH-1) % self.checkpoint_interval == 0 and self.EPOCH != 1:
             self.log_checkpoint('PERIODIC')
     
-    def log_checkpoint(self, status):
+    def log_checkpoint(self, status, p=None):
         if self.SaveCheckpoint == False:
             return
         if status == 'BEST':
+            if self.Print2Terminal:
+                print(f"EPOCH:{self.EPOCH-1}\tBest Score Updated: {p} -> {self.BestScore}")
             ckpt = {'EPOCH':self.EPOCH-1,
                     'BESTSCORE':self.BestScore,
                     'MODEL':self.model.state_dict(),
-                    'OPTIMIZER':self.optimizer.state_dict()}
+                    'OPTIMIZER':self.optimizer.state_dict(),
+                    'SCHEDULER':self.scheduler.state_dict()}
             torch.save(ckpt, os.path.join(self.SavePath, 'checkpoints', "Best.pth"))
         elif status == 'PERIODIC':
             ckpt = {'EPOCH':self.EPOCH-1,
                     'BESTSCORE':self.BestScore,
                     'MODEL':self.model.state_dict(),
-                    'OPTIMIZER':self.optimizer.state_dict()}
+                    'OPTIMIZER':self.optimizer.state_dict(),
+                    'SCHEDULER':self.scheduler.state_dict()}
             torch.save(ckpt, os.path.join(self.SavePath, 'checkpoints', f"Epoch_{self.EPOCH-1}.pth"))
 
     def init_buffer(self, buffer):
@@ -179,8 +193,9 @@ class Logger():
         self.logpath.write(f"{temp}\n")
 
     def upload_to_wandb(self, buffer):
-        pass
-        #wandb.log(temp)
+        if self.Upload2Wandb == False:
+            return
+        wandb.log(buffer)
 
     def printing_to_terminal(self, buffer):
         if self.Print2Terminal == False:
@@ -193,7 +208,10 @@ class Logger():
         except KeyError:
             pass
         for k, v in _buffer.items():
-            temp += f"{k}:{v}\t"
+            if k != 'Epoch' and isinstance(v, float):
+                temp += f'{k}: {v:.4f}\t'
+            else:
+                temp += f"{k}:{v}\t"
         print(temp)
 
     def epoch_avg(self):
@@ -221,13 +239,15 @@ class Logger():
             value = int(value * _ + 0.5)/_
         return value
     
+    def get_ltime(self):
+        ltime = time.localtime()
+        return f"{ltime[0]-2000}{monthlist[ltime[1]-1]}{ltime[2]:02d}_{ltime[3]:02d}{ltime[4]:02d}{ltime[5]:02d}"
+
     def make_path(self, config_name, config):
         self.SavePath = os.path.join(self.SavePath, config_name)
         if os.path.isdir(self.SavePath) == False:
             os.makedirs(self.SavePath)
-        ltime = time.localtime()
-        ltime = f"{ltime[0]-2000}{monthlist[ltime[1]-1]}{ltime[2]:02d}_{ltime[3]:02d}{ltime[4]:02d}{ltime[5]:02d}"
-        self.SavePath = os.path.join(self.SavePath, ltime)
+        self.SavePath = os.path.join(self.SavePath, self.LocalTime)
         os.mkdir(self.SavePath)
         if self.SaveCheckpoint:
             os.mkdir(os.path.join(self.SavePath, 'checkpoints'))
@@ -241,6 +261,6 @@ class Logger():
         self.avg_epoch_time += ((self.epoch_time/60)-self.avg_epoch_time)/(self.EPOCH-1)
         tmp = self.avg_epoch_time * (self.MAX_EPOCH - self.EPOCH - 1)
         h = int(tmp/60)
-        m = int(tmp+1)
+        m = int(tmp%60+1)
         self.epoch_time = 0
         return f"{h}h{m}m"

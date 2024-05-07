@@ -10,18 +10,22 @@ from copy import deepcopy
 class LinearCosineAnnealingLR(_LRScheduler):
     def  __init__(self,
                   optimizer,
-                  milestones,
-                  gamma,
-                  amplitude,
-                  cycle,
-                  cycle_milestones,
-                  cycle_gamma,
-                  max_epoch,
-                  init_lr,
+                  milestones:list,
+                  gamma:float,
+                  amplitude:float,
+                  cycle:int,
+                  cycle_milestones:list,
+                  cycle_gamma:float,
+                  max_epoch:int,
+                  init_lr:float,
                   min_lr = 1e-5,
+                  warmup=None,
+                  resume=None,
                   ):
         self.optimizer = optimizer
         self.base_lr = init_lr
+        if isinstance(self.base_lr, str):
+            self.base_lr = eval(self.base_lr)
         self._lr = deepcopy(self.base_lr)
         self.lr_gamma = 1
         self.milestones = milestones
@@ -30,11 +34,17 @@ class LinearCosineAnnealingLR(_LRScheduler):
         self.cycle = cycle
         self.cycle_milestones = cycle_milestones
         self.cycle_gamma = cycle_gamma
-        self.eps = 0
+        if warmup is not None:
+            self.eps = warmup-1
+        else:
+            self.eps = 0
         self.count_down = cycle
         self.increment = self.get_linear_increment(cycle)
         self.max_epoch = max_epoch
         self.min_lr = min_lr
+        if isinstance(self.min_lr, str):
+            self.min_lr = eval(self.min_lr)
+        self.step()
 
     def get_linear_increment(self, cycle):
         return self.base_lr * self.lr_gamma * self.amplitude / (cycle - 1)
@@ -71,3 +81,7 @@ class LinearCosineAnnealingLR(_LRScheduler):
         lr = self.get_lr()
         for param_group in self.optimizer.param_groups:
             param_group['lr'] = lr
+    
+    def resume_fucntion(self, resume:int=None):
+        for i in range(resume):
+            self.get_lr()

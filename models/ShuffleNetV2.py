@@ -65,9 +65,9 @@ class ShuffleV2Block(nn.Module):
 
 @MODEL.register()
 class ShuffleNetV2(nn.Module):
-    def __init__(self, input_size=32, n_class=100, model_size='1.0x', out_indice=[]):
+    def __init__(self, input_size=32, n_class=100, model_size='1.0x', out_indices=[]):
         super().__init__()
-        self.out_indices = out_indice
+        self.out_indicess = out_indices
 
         self.stage_repeats = [4, 8, 4]
         self.model_size = model_size
@@ -123,14 +123,14 @@ class ShuffleNetV2(nn.Module):
     def forward(self, x):
         outs = []
         x = self.first_conv(x)
-        if 0 in self.out_indices:
+        if 0 in self.out_indicess:
             outs.append(x)
         for idx, stage in enumerate(self.features):
             x = stage(x)
-            if idx+1 in self.out_indices:
+            if idx+1 in self.out_indicess:
                 outs.append(x)
         x = self.conv_last(x)
-        if 4 in self.out_indices:
+        if 4 in self.out_indicess:
             outs.append(x)
         x = self.globalpool(x)
         if self.model_size == '2.0x':

@@ -4,9 +4,10 @@ from torch.optim.lr_scheduler import _LRScheduler
 
 @SCHEDULER.register()
 class WarmUpLR(_LRScheduler):
-    def __init__(self, optimizer, total_iters, last_epoch=-1):
+    def __init__(self, optimizer, iter_per_epoch, warmup_epochs, last_epoch=-1):
 
-        self.total_iters = total_iters
+        self.warmup_epochs = warmup_epochs
+        self.total_iters = iter_per_epoch * warmup_epochs
         super().__init__(optimizer, last_epoch)
 
     def get_lr(self):

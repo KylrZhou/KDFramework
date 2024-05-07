@@ -128,6 +128,8 @@ def build_fucntion(opt):
         function = FUNCTION.get(TYPE)(*opt)
     return function
 
+
+"""
 def build_distiller(opt):
     TYPE = opt['TYPE']
     opt.pop('TYPE')
@@ -145,6 +147,17 @@ def build_distiller(opt):
         for i in opt['kd_loss_fucntion']:
             temp.append(build_fucntion(i))
         opt['kd_loss_fucntion'] = temp
+    if isinstance(opt, dict):
+        distiller = DISTILLER.get(TYPE)(**opt)
+    elif isinstance(opt, str):
+        distiller = DISTILLER.get(TYPE)()
+    elif isinstance(opt, list):
+        distiller = DISTILLER.get(TYPE)(*opt)
+    return distiller
+"""
+def build_distiller(opt):
+    TYPE = opt['TYPE']
+    opt.pop('TYPE')
     if isinstance(opt, dict):
         distiller = DISTILLER.get(TYPE)(**opt)
     elif isinstance(opt, str):

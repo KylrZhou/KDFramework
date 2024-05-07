@@ -25,6 +25,9 @@ settings:
     lr: 0.1
     momentum: 0.9
     weight_decay: 4e-5
+  warmup:
+    TYPE: WarmUpLR
+    warmup_epochs: 1
   scheduler:
     TYPE: MultiStepLR
     milestones:
@@ -35,5 +38,7 @@ settings:
 logger:
   TYPE: Logger
   log_interval: 50
-  checkpoint_interval: 10
+  checkpoint_interval: 5
   MAX_EPOCH: *eps
+  Write2File: True
+  SaveCheckpoint: True

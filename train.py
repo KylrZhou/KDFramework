@@ -24,9 +24,11 @@ from schedulers import *
 from utils import *
 from functions import *
 
-#debuging first
-#resume training (scheduler problem)
-#My scheduler justification 1 epoch more problem
+#cuda device problem implant to dataset
+#! debuging first
+#resume training (MY scheduler problem)
+# repair Vanilla pipeline
+#! My scheduler justification 1 epoch more problem
 #my method adaptation
 ###constructing into one file
 if __name__ == '__main__':
@@ -37,7 +39,7 @@ if __name__ == '__main__':
 
     resume = None
     if args.resume is not None:
-        resume = torch.load(resume)
+        resume = torch.load(args.resume)
 
     config = yaml.load(open(args.config, 'r'),  Loader=yaml.FullLoader)
     config['filename'] = extract_filename(args.config)
@@ -52,10 +54,14 @@ if __name__ == '__main__':
 
     optimizer = build_optimizer(model.parameters(), config['settings']['optimizer'])
     scheduler = build_scheduler(optimizer, config['settings']['scheduler'])
-    
+    try:
+        config['settings']['warmup']['iter_per_epoch'] = len(train_dataset)
+        warmup = build_scheduler(optimizer, config['settings']['warmup'])
+    except:
+        warmup = None
     logger = build_logger(config)
     logger.init_dataset(train_dataset)
-    logger.init_model_optimizer(model, optimizer)
+    logger.init_model_optimizer_scheduler(model, optimizer, scheduler)
     
     try:
         distiller = build_distiller(config['distiller'])
@@ -67,6 +73,7 @@ if __name__ == '__main__':
                     model=model, 
                     loss_function=loss_func, 
                     logger=logger, 
+                    warmup=warmup,
                     config=config,
                     distiller=distiller,
                     resume=resume)
@@ -79,5 +86,6 @@ if __name__ == '__main__':
                   model=model, 
                   loss_function=loss_func, 
                   logger=logger, 
+                  warmup=warmup,
                   config=config,
                   resume=resume)
