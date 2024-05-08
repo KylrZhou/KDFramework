@@ -1,0 +1,120 @@
+train_dataset:
+  TYPE: CIFAR100
+  root: /home/usr00/KDFrameworkDATA/data
+  augmentations: 'configs/augmentation_configs/CIFAR100_train_aug.yaml'
+  batch_size: 128
+  num_workers: 8
+  shuffle: True
+test_dataset:
+  TYPE: CIFAR100
+  root: /home/usr00/KDFrameworkDATA/data
+  augmentations: 'configs/augmentation_configs/CIFAR100_val_aug.yaml'
+  batch_size: 128
+  num_workers: 8
+  shuffle: False
+model:
+  TYPE: MobileNetV2
+  out_indices: [1, 3, 6, 8]
+settings:
+  project: IECON2024
+  EPOCHS: &eps 40
+  device: &dvc cuda
+  loss_function:
+    TYPE: CrossEntropyLoss
+  optimizer:
+    TYPE: SGD
+    lr: &olr 2e-2
+    momentum: 0.9
+    weight_decay: 4e-5
+  scheduler:
+    TYPE: MultiStepLR
+    milestones:
+      - 150
+      - 180
+      - 210
+    gamma: 0.1
+  warmup:
+    TYPE: WarmUpLR
+    warmup_epochs: 1
+  wandb_dir: "/home/usr00/KDFrameworkDATA/wandb"
+distiller:
+  TYPE: AttentionProjectDistiller
+  device: *dvc
+  teacher:
+    TYPE: ResNet
+    layers: 50
+    out_indices: [2, 3, 4]
+  teacher_init_weight: "/home/usr00/KDFrameworkDATA/models/resnet50.pth"
+  ta1:
+    TYPE: SwinConverter
+    in_channels: 16
+    stage: 1
+    custom:
+      - 128
+      - 512
+      - 16
+  ta2:
+    TYPE: SwinConverter
+    in_channels: 32
+    stage: 2
+    custom:
+      - 256
+      - 1024
+      - 8
+  ta3:
+    TYPE: SwinConverter
+    in_channels: 160
+    stage: 3
+    double_layer: False
+    custom:
+      - 512
+      - 2048
+      - 4
+  ta4:
+    TYPE: SwinConverter
+    in_channels: 1280
+    stage: 4
+    custom:
+      - 1664
+      - 2048
+      - 4
+  label_loss_function:
+    TYPE: DIST
+    beta: 1
+    gamma: 1
+    tau: 4
+  loss_function_f1:
+    TYPE: DIST
+    beta: 1
+    gamma: 1
+    tau: 4
+  loss_function_f2:
+    TYPE: DIST
+    beta: 1
+    gamma: 1
+    tau: 4
+  loss_function_f3:
+    TYPE: DIST
+    beta: 0
+    gamma: 2
+    tau: 4
+  loss_function_f4:
+    TYPE: DIST
+    beta: 1
+    gamma: 1
+    tau: 4
+  ALPHA: 1
+  BETA1: 0.15
+  BETA2: 0.15
+  BETA3: 0.15
+  BETA4: 0.15
+  GAMMA: 0.4
+logger:
+  TYPE: Logger
+  log_interval: 50
+  checkpoint_interval: 40
+  MAX_EPOCH: *eps
+  Write2File: True
+  SaveCheckpoint: True
+  Upload2Wandb: True
+  MainScoreName: "accuracy/top1"

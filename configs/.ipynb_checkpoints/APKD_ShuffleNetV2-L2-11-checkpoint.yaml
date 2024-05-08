@@ -17,7 +17,7 @@ model:
   out_indices: [1, 2, 3]
 settings:
   project: IECON2024
-  EPOCHS: &eps 240
+  EPOCHS: &eps 40
   device: &dvc cuda
   loss_function:
     TYPE: CrossEntropyLoss
@@ -27,24 +27,12 @@ settings:
     momentum: 0.9
     weight_decay: 4e-5
   scheduler:
-    TYPE: LinearCosineAnnealingLR
+    TYPE: MultiStepLR
     milestones:
-      - 121
-      - 161
-    gamma: 0.5
-    amplitude: 0.5
-    cycle: 5
-    cycle_milestones:
-      - 30
-      - 120
-      - 160
-    cycle_gamma:
-      - 2
-      - 2
-      - 3
-    max_epoch: *eps
-    init_lr: *olr
-    min_lr: 1e-5
+      - 150
+      - 180
+      - 210
+    gamma: 0.1
   warmup:
     TYPE: WarmUpLR
     warmup_epochs: 1
@@ -69,35 +57,36 @@ distiller:
     TYPE: SwinConverter
     in_channels: 464
     stage: 3
+    double_layer: False
   label_loss_function:
     TYPE: DIST
-    beta: 0.6
-    gamma: 1.4
+    beta: 0.5 #1.6 #1 #0.6
+    gamma: 1.5 #0.4 #1 #1.4
     tau: 4
   loss_function_f1:
     TYPE: DIST
-    beta: 2
-    gamma: 0
-    tau: 5
+    beta: 1.6 #0.4 #1 #2
+    gamma: 0.4 #1.6 #1 #0
+    tau: 4
   loss_function_f2:
     TYPE: DIST
-    beta: 1
-    gamma: 1
+    beta: 1 #1.2 #1 #1
+    gamma: 1 #0.8 #1 #1
     tau: 4
   loss_function_f3:
     TYPE: DIST
-    beta: 1.4
-    gamma: 0.6
-    tau: 1
-  ALPHA: 0.4
-  BETA1: 0.002
-  BETA2: 0.002
-  BETA3: 0.6
-  GAMMA: 0.01
+    beta: 0.5 #1 0 2
+    gamma: 1.5 #1 2 0 ->older
+    tau: 4
+  ALPHA: 1
+  BETA1: 0.4
+  BETA2: 0.3
+  BETA3: 0.3 #0.4
+  GAMMA: 0.2 #0.1
 logger:
   TYPE: Logger
   log_interval: 50
-  checkpoint_interval: 10
+  checkpoint_interval: 40
   MAX_EPOCH: *eps
   Write2File: True
   SaveCheckpoint: True

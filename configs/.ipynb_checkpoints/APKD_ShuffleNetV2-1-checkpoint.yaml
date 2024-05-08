@@ -1,0 +1,105 @@
+train_dataset:
+  TYPE: CIFAR100
+  root: /home/usr00/KDFrameworkDATA/data
+  augmentations: 'configs/augmentation_configs/CIFAR100_train_aug.yaml'
+  batch_size: 128
+  num_workers: 8
+  shuffle: True
+test_dataset:
+  TYPE: CIFAR100
+  root: /home/usr00/KDFrameworkDATA/data
+  augmentations: 'configs/augmentation_configs/CIFAR100_val_aug.yaml'
+  batch_size: 128
+  num_workers: 8
+  shuffle: False
+model:
+  TYPE: ShuffleNetV2
+  out_indices: [1, 2, 3]
+settings:
+  project: IECON2024
+  EPOCHS: &eps 240
+  device: &dvc cuda
+  loss_function:
+    TYPE: CrossEntropyLoss
+  optimizer:
+    TYPE: SGD
+    lr: &olr 2e-2
+    momentum: 0.9
+    weight_decay: 4e-5
+  scheduler:
+    TYPE: LinearCosineAnnealingLR
+    milestones:
+      - 121
+      - 161
+    gamma: 0.5
+    amplitude: 0.5
+    cycle: 5
+    cycle_milestones:
+      - 30
+      - 120
+      - 160
+    cycle_gamma:
+      - 2
+      - 2
+      - 3
+    max_epoch: *eps
+    init_lr: *olr
+    min_lr: 1e-5
+  warmup:
+    TYPE: WarmUpLR
+    warmup_epochs: 1
+  wandb_dir: "/home/usr00/KDFrameworkDATA/wandb"
+distiller:
+  TYPE: AttentionProjectDistiller
+  device: *dvc
+  teacher:
+    TYPE: ResNet
+    layers: 50
+    out_indices: [2, 3, 4]
+  teacher_init_weight: "/home/usr00/KDFrameworkDATA/models/resnet50.pth"
+  ta1:
+    TYPE: SwinConverter
+    in_channels: 116
+    stage: 1
+  ta2:
+    TYPE: SwinConverter
+    in_channels: 232
+    stage: 2
+  ta3:
+    TYPE: SwinConverter
+    in_channels: 464
+    stage: 3
+  label_loss_function:
+    TYPE: DIST
+    beta: 0.4 #1.6 #1 #0.6
+    gamma: 1.6 #0.4 #1 #1.4
+    tau: 4
+  loss_function_f1:
+    TYPE: DIST
+    beta: 1.6 #0.4 #1 #2
+    gamma: 0.4 #1.6 #1 #0
+    tau: 4
+  loss_function_f2:
+    TYPE: DIST
+    beta: 0.8 #1.2 #1 #1
+    gamma: 1.2 #0.8 #1 #1
+    tau: 4
+  loss_function_f3:
+    TYPE: DIST
+    beta: 0.6 #1.4 #1 #1.4
+    gamma: 1.4 #0.6 #1 #0.6
+    tau: 4
+  ALPHA: 1
+  BETA1: 0.4
+  BETA2: 0.3
+  BETA3: 0.3 #0.4
+  GAMMA: 0.2 #0.1
+logger:
+  TYPE: Logger
+  log_interval: 50
+  checkpoint_interval: 40
+  MAX_EPOCH: *eps
+  Write2File: True
+  SaveCheckpoint: True
+  Upload2Wandb: True
+  MainScoreName: "accuracy/top1"
