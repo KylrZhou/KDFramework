@@ -1,0 +1,94 @@
+train_dataset:
+  TYPE: CIFAR100
+  root: /home/usr00/KDFrameworkDATA/data
+  augmentations: 'configs/augmentation_configs/CIFAR100_train_aug.yaml'
+  batch_size: 128
+  num_workers: 8
+  shuffle: True
+test_dataset:
+  TYPE: CIFAR100
+  root: /home/usr00/KDFrameworkDATA/data
+  augmentations: 'configs/augmentation_configs/CIFAR100_val_aug.yaml'
+  batch_size: 128
+  num_workers: 8
+  shuffle: False
+model:
+  TYPE: ShuffleNetV2
+  out_indices: [1, 2, 3]
+settings:
+  project: IECON2024
+  EPOCHS: &eps 40
+  device: &dvc cuda
+  loss_function:
+    TYPE: CrossEntropyLoss
+  optimizer:
+    TYPE: SGD
+    lr: &olr 1e-2
+    momentum: 0.9
+    weight_decay: 5e-4
+  scheduler:
+    TYPE: MultiStepLR
+    milestones:
+      - 150
+      - 180
+      - 210
+    gamma: 0.1
+  warmup:
+    TYPE: WarmUpLR
+    warmup_epochs: 1
+  wandb_dir: "/home/usr00/KDFrameworkDATA/wandb"
+distiller:
+  TYPE: AttentionProjectDistiller
+  device: *dvc
+  teacher:
+    TYPE: ResNet
+    layers: 50
+    out_indices: [2, 3, 4]
+  teacher_init_weight: "/home/usr00/KDFrameworkDATA/models/resnet50.pth"
+  ta1:
+    TYPE: SwinConverter
+    in_channels: 116
+    stage: 1
+  ta2:
+    TYPE: SwinConverter
+    in_channels: 232
+    stage: 2
+  ta3:
+    TYPE: SwinConverter
+    in_channels: 464
+    stage: 3
+    double_layer: False
+  label_loss_function:
+    TYPE: DIST
+    beta: 0.5
+    gamma: 1.5
+    tau: 4
+  loss_function_f1:
+    TYPE: DIST
+    beta: 0.5
+    gamma: 1.5
+    tau: 4
+  loss_function_f2:
+    TYPE: DIST
+    beta: 0.5
+    gamma: 1.5
+    tau: 4
+  loss_function_f3:
+    TYPE: DIST
+    beta: 0.5
+    gamma: 1.5
+    tau: 4
+  ALPHA: 0.1
+  BETA1: 0.2
+  BETA2: 0.4
+  BETA3: 0.6
+  GAMMA: 0.9
+logger:
+  TYPE: Logger
+  log_interval: 50
+  checkpoint_interval: 40
+  MAX_EPOCH: *eps
+  Write2File: False
+  SaveCheckpoint: False
+  Upload2Wandb: False
+  MainScoreName: "accuracy/top1"
