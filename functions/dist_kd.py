@@ -30,7 +30,7 @@ class DIST(nn.Module):
     def forward(self, z_s, z_t):
         y_s = (z_s / self.tau).softmax(dim=1)
         y_t = (z_t / self.tau).softmax(dim=1)
-        inter_loss = self.tau**2 * inter_class_relation(y_s, y_t)
-        intra_loss = self.tau**2 * intra_class_relation(y_s, y_t)
-        kd_loss = self.beta * inter_loss + self.gamma * intra_loss
+        #inter_loss = self.tau**2 * 
+        #intra_loss = self.tau**2 * 
+        kd_loss = self.beta * inter_class_relation(y_s, y_t) + self.gamma * intra_class_relation(y_s, y_t)
         return kd_loss
