@@ -42,13 +42,13 @@ if __name__ == '__main__':
         resume = torch.load(args.resume)
 
     config = yaml.load(open(args.config, 'r'),  Loader=yaml.FullLoader)
-    """
     config['settings']['EPOCHS'] = 1
     config['logger']['Write2File'] = False
     config['logger']['SaveCheckpoint'] = False
     config['logger']['Upload2Wandb'] = False
     """
     
+    """
     config['filename'] = extract_filename(args.config)
      
     train_dataset = build_dataset_train(config['train_dataset'])
@@ -69,7 +69,6 @@ if __name__ == '__main__':
     logger = build_logger(config)
     logger.init_dataset(train_dataset)
     logger.init_model_optimizer_scheduler(model, optimizer, scheduler)
-    
     try:
         distiller = build_distiller(config['distiller'])
         distiller.init_logger(logger)

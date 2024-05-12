@@ -1,0 +1,126 @@
+train_dataset:
+  TYPE: CIFAR100
+  root: /home/usr00/KDFrameworkDATA/data
+  augmentations: 'configs/augmentation_configs/CIFAR100_train_aug.yaml'
+  batch_size: 128
+  num_workers: 8
+  shuffle: True
+test_dataset:
+  TYPE: CIFAR100
+  root: /home/usr00/KDFrameworkDATA/data
+  augmentations: 'configs/augmentation_configs/CIFAR100_val_aug.yaml'
+  batch_size: 128
+  num_workers: 8
+  shuffle: False
+model:
+  TYPE: ShuffleNetV2
+  out_indices: [1, 2, 3]
+settings:
+  project: IECON2024
+  EPOCHS: &eps 40
+  device: &dvc cuda
+  loss_function:
+    TYPE: CrossEntropyLoss
+  optimizer:
+    TYPE: SGD
+    lr: &olr 1e-1
+    momentum: 0.9
+    weight_decay: 1e-4
+  scheduler:
+    TYPE: LinearCosineAnnealingLR
+    milestones:
+      - 151
+      - 181
+      - 211
+    gamma: 0.1
+    amplitude: 0.5
+    cycle: 5
+    cycle_milestones:
+      - 30
+      - 150
+      - 180
+    cycle_gamma:
+      - 2
+      - 3
+      - 2
+    max_epoch: *eps
+    init_lr: *olr
+  warmup:
+    TYPE: WarmUpLR
+    warmup_epochs: 1
+  wandb_dir: "/home/usr00/KDFrameworkDATA/wandb"
+distiller:
+  TYPE: AttentionProjectDistiller
+  device: *dvc
+  teacher:
+    TYPE: ResNet
+    layers: 50
+    out_indices: [1, 2, 3]
+  teacher_init_weight: "/home/usr00/KDFrameworkDATA/models/resnet50.pth"
+  ta1:
+    TYPE: SwinConverter
+    align: True
+    double_layer: False
+    activation: "nn.Softmax(dim=1)"
+    in_channels: 116
+    stage: 1
+    custom:
+      - 128
+      - 256
+      - 32
+  ta2:
+    TYPE: SwinConverter
+    align: True
+    double_layer: False
+    activation: "nn.Softmax(dim=1)"
+    in_channels: 232
+    stage: 2
+    custom:
+      - 384
+      - 512
+      - 16
+  ta3:
+    TYPE: SwinConverter
+    align: True
+    double_layer: False
+    activation: "nn.Softmax(dim=1)"
+    in_channels: 464
+    stage: 3
+    custom:
+      - 768
+      - 1024
+      - 8
+  label_loss_function:
+    TYPE: DIST
+    beta: 0.5
+    gamma: 1.5
+    tau: 1
+  loss_function_f1:
+    TYPE: DIST
+    beta: 0.5
+    gamma: 1.5
+    tau: 1
+  loss_function_f2:
+    TYPE: DIST
+    beta: 0.5
+    gamma: 1.5
+    tau: 5
+  loss_function_f3:
+    TYPE: DIST
+    beta: 0.5
+    gamma: 1.5
+    tau: 1
+  ALPHA: 0.2
+  BETA1: 0.2
+  BETA2: 0.6
+  BETA3: 1
+  GAMMA: 1
+logger:
+  TYPE: Logger
+  log_interval: 50
+  checkpoint_interval: 40
+  MAX_EPOCH: *eps
+  Write2File: True
+  SaveCheckpoint: True
+  Upload2Wandb: True
+  MainScoreName: "accuracy/top1"

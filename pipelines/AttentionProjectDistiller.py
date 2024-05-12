@@ -57,7 +57,7 @@ class AttentionProjectDistiller():
         node3_loss = self.logger.log(self.loss_function_f3(node3, t_pred[2]), "loss_t34")
         if self.s4:
             node4 = self.ta4(s_pred[3])
-            node4_loss = self.logger.log(self.loss_function_f3(node4, t_pred[2]), "loss_t44")
+            node4_loss = self.logger.log(self.loss_function_f3(node4, t_pred[3]), "loss_t44")
         label_loss = self.logger.log(self.label_loss_function(s_pred[-1], t_pred[-1]), "loss_labelt")
         if self.s4:
             return node1_loss * self.BETA1 + node2_loss * self.BETA2 + node3_loss * self.BETA3 + node4_loss * self.BETA4 + label_loss * self.GAMMA

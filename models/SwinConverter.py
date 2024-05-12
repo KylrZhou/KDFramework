@@ -21,16 +21,24 @@ class AttentionBlock(nn.Module):
         return out
 
 class SwinTransformerBlock(nn.Module):
-    def __init__(self, dim, mlp_dim, output_dim, output_size):
+    def __init__(self, dim, mlp_dim, output_dim, output_size, activation=nn.GELU()):
         super().__init__()
         self.norm1 = nn.LayerNorm(dim)
         self.attn = AttentionBlock(dim)
         self.norm2 = nn.LayerNorm(dim)
-        self.mlp = nn.Sequential(
-            nn.Linear(dim, mlp_dim),
-            nn.GELU(),
-            nn.Linear(mlp_dim, dim)
-        )
+        if activation is None or activation == 'None':
+            self.mlp = nn.Sequential(
+                nn.Linear(dim, mlp_dim),
+                nn.Linear(mlp_dim, dim)
+            )
+        else:
+            if isinstance(activation, str):
+                activation = eval(activation)
+            self.mlp = nn.Sequential(
+                nn.Linear(dim, mlp_dim),
+                activation,
+                nn.Linear(mlp_dim, dim)
+            )
         self.conv = nn.Conv2d(dim, output_dim, kernel_size=1)
         self.pool = nn.AdaptiveAvgPool2d(output_size)
 
@@ -44,41 +52,64 @@ class SwinTransformerBlock(nn.Module):
         return x
 
 class Reformer(nn.Module):
-    def __init__(self,in_channels,  stage=3):
+    def __init__(self,in_channels,  stage=3, align=False):
         super().__init__()
+        self.align = align
         if stage == 4:
             self.reform_conv = nn.Conv2d(in_channels=in_channels, out_channels=2048, kernel_size=1, stride=1, padding=0)
         elif stage == 3:
-            self.reform_conv = nn.Conv2d(in_channels=in_channels, out_channels=2048, kernel_size=1, stride=1, padding=0)
+            if align:
+                self.reform_conv = nn.Sequential(
+                    nn.ConvTranspose2d(in_channels=in_channels, out_channels=in_channels, kernel_size=2, stride=2, padding=0),
+                    nn.Conv2d(in_channels=in_channels, out_channels=1024, kernel_size=1, stride=1, padding=0))
+            else:
+                self.reform_conv = nn.Conv2d(in_channels=in_channels, out_channels=2048, kernel_size=1, stride=1, padding=0)
         elif stage == 2:
-            self.reform_conv = nn.Conv2d(in_channels=in_channels, out_channels=1024, kernel_size=1, stride=1, padding=0)
+            if align:
+                self.reform_conv = nn.Sequential(
+                    nn.ConvTranspose2d(in_channels=in_channels, out_channels=in_channels, kernel_size=2, stride=2, padding=0),
+                    nn.Conv2d(in_channels=in_channels, out_channels=512, kernel_size=1, stride=1, padding=0))
+            else:
+                self.reform_conv = nn.Conv2d(in_channels=in_channels, out_channels=1024, kernel_size=1, stride=1, padding=0)
         elif stage == 1:
-            self.reform_conv = nn.Conv2d(in_channels=in_channels, out_channels=512, kernel_size=1, stride=1, padding=0)
+            if align:
+                self.reform_conv = nn.Sequential(
+                    nn.ConvTranspose2d(in_channels=in_channels, out_channels=in_channels, kernel_size=2, stride=2, padding=0),
+                    nn.Conv2d(in_channels=in_channels, out_channels=256, kernel_size=1, stride=1, padding=0))
+            else:
+                self.reform_conv = nn.Conv2d(in_channels=in_channels, out_channels=512, kernel_size=1, stride=1, padding=0)
 
     def forward(self, x, y):
         _, _, h, w = y.size()
-        x = F.interpolate(x, size=(h, w), mode='bilinear', align_corners=False)
+        if self.align is not True:
+            x = F.interpolate(x, size=(h, w), mode='bilinear', align_corners=False)
         x = self.reform_conv(x)
         return x/2 + y/2
 
 @MODEL.register()
 class SwinConverter(nn.Module):
-    def __init__(self, in_channels, stage=3, double_layer=True, custom=None):
+    def __init__(self, in_channels, stage=3, double_layer=True, custom=None, align=False, activation=nn.GELU()):
         super().__init__()
         if custom is not None:
-            self.reform_conv = Reformer(in_channels, stage)
-            self.attn = SwinTransformerBlock(in_channels, custom[0], custom[1], custom[2])
+            self.reform_conv = Reformer(in_channels, stage, align=align)
+            if double_layer:
+                self.attn = nn.Sequential(
+                    SwinTransformerBlock(in_channels, custom[0], custom[1], custom[2], activation=activation),
+                    SwinTransformerBlock(custom[1], custom[3], custom[4], custom[5], activation=activation)
+                )
+            else:
+                self.attn = SwinTransformerBlock(in_channels, custom[0], custom[1], custom[2] , activation=activation)
         else:
             self.double_layer = double_layer
             if stage == 1:
-                self.reform_conv = Reformer(in_channels, 1)
+                self.reform_conv = Reformer(in_channels, 1, align=align)
                 self.attn = nn.Sequential(
                     #SwinTransformerBlock(16, 512, 512, 16)
                     SwinTransformerBlock(in_channels, 128, 512, 16)
                 )
         
             elif stage == 2:
-                self.reform_conv = Reformer(in_channels, 2)
+                self.reform_conv = Reformer(in_channels, 2, align=align)
                 self.attn = nn.Sequential(
                     #SwinTransformerBlock(32, 512, 1024, 8),
                     SwinTransformerBlock(in_channels, 256, 1024, 8),
@@ -86,7 +117,7 @@ class SwinConverter(nn.Module):
                 )
         
             elif stage == 3:
-                self.reform_conv = Reformer(in_channels, 3)
+                self.reform_conv = Reformer(in_channels, 3, align=align)
                 if self.double_layer:
                     self.attn = nn.Sequential(
                         SwinTransformerBlock(in_channels, 768, 1024, 4),
@@ -95,7 +126,7 @@ class SwinConverter(nn.Module):
                 else:
                     self.attn = SwinTransformerBlock(in_channels, 768, 2048, 4)
             elif stage == 4:
-                self.reform_conv = Reformer(in_channels, 4)
+                self.reform_conv = Reformer(in_channels, 4, align=align)
                 self.attn = nn.Sequential(
                     SwinTransformerBlock(in_channels, 1664, 2048, 4),
                 )
